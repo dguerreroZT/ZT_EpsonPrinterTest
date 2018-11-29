@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html manifest="Restaurant.appcache">
+ <head>
+     <title>Zafiro ERP - Restaurant</title>
+      <!--Import materialize.css-->
+      <link type="text/css" rel="stylesheet" href="lib/materialize/css/materialize.css"  media="screen,projection"/>
+     <link type="text/css" rel="stylesheet" href="lib/sweetAlert2/sweetalert2.min.css"  media="screen,projection"/>
+     <!--Import custom css-->
+      <link type="text/css" rel="stylesheet" href="css/503.html.css"  media="screen,projection"/>
+
+	 <!--Favicon-->
+     
+
+      <!--Let browser know website is optimized for mobile-->
+      <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+     
+     <!--Mostrar en pantalla completa-->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+     
+     <!--Muestra la barra de estado en iphone-->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+     
+     <!--Color en la barra de direccion en chrome-->
+    <meta name="theme-color" content="#4a148c">
+     
+     <!--Color de la app-->
+    <meta name="msapplication-navbutton-color" content="#4a148c">
+     
+     <!--Pantalla de bienvenida-->
+    <link rel="apple-touch-startup-image" href="img/splash.png" />
+    
+    <!--Pantalla de bienvenida-->
+    <link rel="manifest" href="manifest.json">
+     
+</head>
+
+ <body bgcolor="#ede7f6">
+    <div class="navbar-fixed">
+        <nav>
+            <div class="nav-wrapper">
+                <ul class="left">
+                    
+                    <!--li><h5>Restaurant</h5></li-->
+                    
+                </ul>
+                <ul class="right">
+                   
+                </ul>
+            </div>
+        </nav>
+        
+        
+    </div>
+     
+     
+     
+     <div class="row center" style="margin-top: 20px">
+         <img id="fotoCliente" src="img/print.svg" class="center"/>
+         
+     </div>
+             
+     <div class="row center deep-purple-text text-lighten-1">
+         <h5><b>Prueba de impresión</b></h5>
+     </div>
+     
+     <div class="row center deep-purple-text text-lighten-1">
+         <h6>Escribe la Dirección IP de la impresora. A continuación presiona "Iniciar Prueba" para imprimir una página de prueba.</h6>
+     </div>
+    
+	<div class="row">
+		<div class="input-field col s11 m7 offset-m1">
+		  <input id="txtIP" type="text">
+          <label for="txtIP">Dirección IP</label>
+		</div>
+        
+        <div class="input-field col s11 m3">
+		  <input id="txtPort" type="text">
+          <label for="txtPort">Puerto</label>
+		</div>
+	  </div>
+	
+     <div class="row input-field col s10 offset-s1" style="margin-top: 0">
+            <p><a id="btnImprimir" href="javascript:void(0)" class="waves-effect waves-light btn col s10 m6 l4 offset-s1 offset-m3 offset-l4">Iniciar Prueba</a></p>
+        </div>
+     <div class="row">
+         <p id="lblLog"></p>
+     </div>
+     
+    <!--Import jQuery before materialize.js-->
+    <script type="text/javascript" src="lib/jquery/jquery-3.3.1.min.js"></script>
+     <script type="text/javascript" src="lib/sweetAlert2/sweetalert2.min.js"></script>
+     <script type="text/javascript" src="lib/epson/epos-2.9.0.js"></script>
+    <!--JavaScript at end of body for optimized loading-->
+    <script type="text/javascript" src="lib/materialize/js/materialize.min.js"></script>
+     <!--script type="text/javascript" src="js/Core.js"></script-->
+    <!--script type="text/javascript" src="js/Utils.js"></script-->
+    <!--script type="text/javascript" src="js/Restaurant.js"></script-->
+    <!--script type="text/javascript" src="js/agregarMesaCliente.html.js"></script-->
+    
+	<script>
+		$(function(){
+			M.AutoInit();
+            
+            var _log = ""
+            function clearLog(){
+                _log = ""
+                $("#lblLog").html(_log)   
+            }
+            
+            function log(message){
+                console.log(message)
+                _log += "\n" + message
+                
+                $("#lblLog").html(_log.replace(/\n/g, "<br/>"))   
+            }
+		
+            var ePosDev = new epson.ePOSDevice();
+            function connect() {
+                var ipAddress = $("#txtIP").val();
+                var port = $("#txtPort").val();
+                
+                if(ipAddress == "" || port == ""){
+                    return 
+                }
+                
+                log("Conectando a la impresora " + ipAddress + " a través del puerto " + port)
+                ePosDev.connect(ipAddress, port, callback_connect);
+            }
+            
+            function callback_connect(resultConnect){
+                var deviceId = 'local_printer';
+                var options = {'crypto' : false, 'buffer' : false};
+                if ((resultConnect == 'OK') || (resultConnect == 'SSL_CONNECT_OK')) {
+                    //Retrieves the Printer object
+                    log("Impresora conectada")
+                    ePosDev.createDevice(deviceId, ePosDev.DEVICE_TYPE_PRINTER, options,
+                    callback_createDevice);
+                }
+                else {
+                    //Displays error messages
+                    log("No se pudo conectar a la impresora")
+                }
+            }
+            
+            var printer = null;
+            function callback_createDevice(deviceObj, errorCode){
+                if (deviceObj === null) {
+                    //Displays an error message if the system fails to retrieve the Printer object
+                    log("Error al obtener los datos de inicialización de la impresora")
+                    return;
+                }
+                printer = deviceObj;
+                log("Impresora inicializada")
+                
+                log("Preparando datos...")
+                createData()
+                
+                
+                log("Enviando impresión...")
+                send()
+                
+                //Registers the print complete event
+                printer.onreceive = function(response){
+                    if (response.success) {
+                        //Displays the successful print message
+                        log("Impresión completa")
+                    }
+                    else {
+                        //Displays error messages
+                        log("No se pudo imprimir")
+                    }
+                    
+                    //Discards the Printer object
+                    ePosDev.deleteDevice(printer, callback_deleteDevice);
+                };
+            }
+            
+            function createData(){
+                printer.addTextAlign(printer.ALIGN_CENTER);
+                printer.addText('Hola\n');
+                printer.addText('Esta es una prueba de impresión\n');
+                printer.addText('AAAAAAAAAAAAAAAAAAAA\n');
+                printer.addText('BBBBBBBBBBBBBBBBBBBB\n');
+                printer.addText('CCCCCCCCCCCCCCCCCCCC\n');
+                printer.addText('DDDDDDDDDDDDDDDDDDDD\n');
+                printer.addText('EEEEEEEEEEEEEEEEEEEE\n');
+                printer.addText('FFFFFFFFFFFFFFFFFFFF\n');
+                printer.addText('GGGGGGGGGGGGGGGGGGGG\n');
+                printer.addText('HHHHHHHHHHHHHHHHHHHH\n');
+                printer.addText('IIIIIIIIIIIIIIIIIIII\n');
+                printer.addText('JJJJJJJJJJJJJJJJJJJJ\n');
+                printer.addText('KKKKKKKKKKKKKKKKKKKK\n');
+                printer.addText('LLLLLLLLLLLLLLLLLLLL\n');
+                printer.addText('MMMMMMMMMMMMMMMMMMMM\n');
+                printer.addText('NNNNNNNNNNNNNNNNNNNN\n');
+                printer.addText('ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ\n');
+                printer.addText('OOOOOOOOOOOOOOOOOOOO\n');
+                printer.addText('PPPPPPPPPPPPPPPPPPPP\n');
+                printer.addText('QQQQQQQQQQQQQQQQQQQQ\n');
+                printer.addText('RRRRRRRRRRRRRRRRRRRR\n');
+                printer.addText('SSSSSSSSSSSSSSSSSSSS\n');
+                printer.addText('TTTTTTTTTTTTTTTTTTTT\n');
+                printer.addText('UUUUUUUUUUUUUUUUUUUU\n');
+                printer.addText('VVVVVVVVVVVVVVVVVVVV\n');
+                printer.addText('WWWWWWWWWWWWWWWWWWWW\n');
+                printer.addText('XXXXXXXXXXXXXXXXXXXX\n');
+                printer.addText('YYYYYYYYYYYYYYYYYYYY\n');
+                printer.addText('ZZZZZZZZZZZZZZZZZZZZ\n');
+                
+                printer.addText('Powered by Zafiro\n');
+            }
+
+            function send(){
+                if (ePosDev.isConnected) {
+                    printer.send();
+                }
+            }
+            
+            function callback_deleteDevice(errorCode){
+                //Terminates connection with device
+                ePosDev.disconnect();
+            }
+                                
+            function Imprimir(){
+                connect()
+                
+            }
+            
+            
+			$("#btnImprimir").click(function(){
+				clearLog()
+                Imprimir()
+			})
+		})
+		
+		
+	 </script>
+	
+	
+</body>
+</html>
