@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<html>
 
  <head>
      <title>Zafiro ERP - Restaurant</title>
@@ -63,7 +63,7 @@
      </div>
      
      <div class="row center deep-purple-text text-lighten-1">
-         <h6>Escribe la Dirección IP y el puerto de la impresora. A continuación presiona "Iniciar Prueba" para imprimir una página de prueba.</h6>
+         <h6>Escribe la Dirección IP de la impresora. A continuación presiona "Iniciar Prueba" para imprimir una página de prueba.</h6>
      </div>
     
 	<div class="row">
@@ -79,7 +79,10 @@
 	  </div>
 	
      <div class="row input-field col s10 offset-s1" style="margin-top: 0">
-            <p><a id="btnImprimir" href="javascript:void(0)" class="waves-effect waves-light btn col s10 m6 l4 offset-s1 offset-m3 offset-l4">Iniciar Prueba</a></p>
+            <p><a id="btnConectar" href="javascript:void(0)" class="waves-effect waves-light btn col s10 m2 l2 offset-s1 offset-m2 offset-l2">Conectar</a></p>
+            <p><a id="btnImprimir" href="javascript:void(0)" class="waves-effect waves-light btn col s10 m2 l2 offset-s1 offset-m1 offset-l1">Imprimir</a></p>
+            <p><a id="btnDesconectar" href="javascript:void(0)" class="waves-effect waves-light btn col s10 m2 l2 offset-s1 offset-m1 offset-l1">Desconectar</a></p>
+         
         </div>
      <div class="row">
          <p id="lblLog"></p>
@@ -91,13 +94,21 @@
      <script type="text/javascript" src="lib/epson/epos-2.9.0.js"></script>
     <!--JavaScript at end of body for optimized loading-->
     <script type="text/javascript" src="lib/materialize/js/materialize.min.js"></script>
+     <script type="text/javascript" src="js/Formatter.js"></script>
+     <script type="text/javascript" src="js/PrinterObject.js"></script>
      <!--script type="text/javascript" src="js/Core.js"></script-->
     <!--script type="text/javascript" src="js/Utils.js"></script-->
     <!--script type="text/javascript" src="js/Restaurant.js"></script-->
     <!--script type="text/javascript" src="js/agregarMesaCliente.html.js"></script-->
     
 	<script>
-		$(function(){
+        var printer = null;
+        var ipAddress = ""
+        var port = ""
+        var intervalID = null
+        var stopConnect = false
+        
+        $(function(){
 			M.AutoInit();
             
             var _log = ""
@@ -106,14 +117,112 @@
                 $("#lblLog").html(_log)   
             }
             
-            function log(message){
+            log = function(message){
                 console.log(message)
                 _log += "\n" + message
                 
                 $("#lblLog").html(_log.replace(/\n/g, "<br/>"))   
             }
-		
-            var ePosDev = new epson.ePOSDevice();
+
+
+
+            var printerProp = {
+                deviceId: 'local_printer',
+                deviceUse: true,
+                crypto: false,
+                buffer:false
+            }
+            
+            var PAPER_WIDTH = {
+                PAPER_WIDTH_58MM: 0, 	// 58mm Reciept
+                PAPER_WIDTH_80MM: 1		// 80mm Reciept
+            };
+            // Define the paper width for receipt
+            var PRINTER_PAPER_WIDTH = PAPER_WIDTH.PAPER_WIDTH_80MM;
+            
+            var formatter = new Formatter();
+            var eposdev = new epson.ePOSDevice();
+
+            function onReconnecting(){
+                log("Reconectando...");
+            }
+            function onReconnect(){
+                log("Reconectado.");
+            }
+            function onDisconnect(){
+                log("Impresora desconectada, volviendo a conectar...");
+                if ( intervalID == null ){
+                    intervalID = setInterval(function(){
+                        eposdev.connect(ipAddress, port, Callback_connect);
+                        }, 5000);
+                }
+            }
+            
+            eposdev.onreconnecting = onReconnecting;
+            eposdev.onreconnect = onReconnect;
+            eposdev.ondisconnect = onDisconnect;
+            
+
+            function Callback_connect(data) {
+                if(intervalID){
+                    clearInterval(intervalID);
+                    intervalID = null;
+                }
+                log("Response")
+                log(data)
+                
+                if (data == "OK" || data == "SSL_CONNECT_OK") {
+                    log("Impresora detectada")
+                    printer = new PrinterObject(eposdev, printerProp); 
+                    eposdev.ondisconnect = onDisconnect;    
+                    prevConnected = true
+                } else {
+                    if(!stopConnect){
+                        log("No se detectó la impresora. Volviendo a detectar...")
+                        setTimeout(function(){
+                            eposdev.connect(ipAddress, port, Callback_connect);
+                        }, 5000);
+                    }
+                }
+            }
+            
+            function Disconnect(){
+                if(prevConnected){
+                    log("Desconectando impresora");
+                    eposdev.ondisconnect = null;
+                    eposdev.ondisconnect = function(){log("Impresora desconectada")};
+                    eposdev.disconnect();
+                }
+                else{
+                    log("Impresora desconectada")
+                }
+            }
+            
+            var prevConnected = false
+            
+            function Connect() {
+                if(prevConnected){
+                    Disconnect()
+                }
+                
+                log("Conectando a la impresora " + ipAddress + " a través del puerto " + port)
+                eposdev.connect(ipAddress, port, Callback_connect);
+                
+            }
+            
+            function Print(){
+                if(printer){
+                    log("Imprimiendo...")
+                    printer.PrintReciept(PRINTER_PAPER_WIDTH)
+                }else{
+                    log("No hay impresora conectada")
+                }
+                
+            }
+            
+            
+            
+            /*
             function connect() {
                 var ipAddress = $("#txtIP").val();
                 var port = $("#txtPort").val();
@@ -155,8 +264,6 @@
                 createData()
                 
                 
-                log("Enviando impresión...")
-                send()
                 
                 //Registers the print complete event
                 printer.onreceive = function(response){
@@ -172,6 +279,9 @@
                     //Discards the Printer object
                     ePosDev.deleteDevice(printer, callback_deleteDevice);
                 };
+                
+                log("Enviando impresión...")
+                send()
             }
             
             function createData(){
@@ -219,17 +329,35 @@
                 //Terminates connection with device
                 ePosDev.disconnect();
             }
-                                
-            function Imprimir(){
-                connect()
-                
-            }
             
             
-			$("#btnImprimir").click(function(){
-				clearLog()
-                Imprimir()
+            */
+            
+			$("#btnConectar").click(function(){
+                ipAddress = $("#txtIP").val();
+                port = $("#txtPort").val();
+				
+                stopConnect = false
+                clearLog()
+                if(ipAddress == "" || port == ""){
+                    log("Es necesario introducir la IP y el puerto de la impresora")
+                    return 
+                }
+                Connect()
 			})
+            
+            $("#btnImprimir").click(function(){
+				clearLog()
+                Print()
+			})
+            
+            $("#btnDesconectar").click(function(){
+                stopConnect = true
+				clearLog()
+                Disconnect()
+                
+			})
+            
 		})
 		
 		
