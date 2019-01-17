@@ -73,13 +73,13 @@
 		</div>
         
         <div class="input-field col s11 m3">
-		  <input id="txtPort" type="text">
+		  <input id="txtPort" type="text" value="8008">
           <label for="txtPort">Puerto</label>
 		</div>
 	  </div>
 	
      <div class="row input-field col s10 offset-s1" style="margin-top: 0">
-            <p><a id="btnConectar" href="javascript:void(0)" class="waves-effect waves-light btn col s10 m2 l2 offset-s1 offset-m2 offset-l2">Conectar</a></p>
+            <!--<p><a id="btnConectar" href="javascript:void(0)" class="waves-effect waves-light btn col s10 m2 l2 offset-s1 offset-m2 offset-l2">Conectar</a></p>-->
             <p><a id="btnImprimir" href="javascript:void(0)" class="waves-effect waves-light btn col s10 m2 l2 offset-s1 offset-m1 offset-l1">Imprimir</a></p>
             <p><a id="btnDesconectar" href="javascript:void(0)" class="waves-effect waves-light btn col s10 m2 l2 offset-s1 offset-m1 offset-l1">Desconectar</a></p>
          
@@ -175,7 +175,7 @@
                 
                 if (data == "OK" || data == "SSL_CONNECT_OK") {
                     log("Impresora detectada")
-                    printer = new PrinterObject(eposdev, printerProp); 
+                    printer = new PrinterObject(eposdev, printerProp, Print); 
                     eposdev.ondisconnect = onDisconnect;    
                     prevConnected = true
                 } else {
@@ -213,12 +213,10 @@
             }
             
             function Print(){
-                if(printer){
-                    log("Imprimiendo...")
-                    printer.PrintReciept(PRINTER_PAPER_WIDTH)
-                }else{
-                    log("No hay impresora conectada")
-                }
+                log("Imprimiendo...")
+                printer.PrintReciept(PRINTER_PAPER_WIDTH)
+                
+                
                 
             }
             
@@ -335,7 +333,7 @@
             
             */
             
-			$("#btnConectar").click(function(){
+			$("#btnImprimir").click(function(){
                 ipAddress = $("#txtIP").val();
                 port = $("#txtPort").val();
 				
@@ -348,10 +346,10 @@
                 Connect()
 			})
             
-            $("#btnImprimir").click(function(){
-				clearLog()
-                Print()
-			})
+            //$("#btnImprimir").click(function(){
+			//	clearLog()
+            //    Print()
+			//})
             
             $("#btnDesconectar").click(function(){
                 stopConnect = true
