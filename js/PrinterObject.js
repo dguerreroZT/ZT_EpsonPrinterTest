@@ -1,7 +1,7 @@
 //**********************************************************
 //* Receipt printing management
 //**********************************************************
-function PrinterObject(eposdev, properties) {
+function PrinterObject(eposdev, properties, printFunction) {
 	//**********************************************************
 	//* Constants
 	//**********************************************************
@@ -44,6 +44,7 @@ function PrinterObject(eposdev, properties) {
 			self.deviceObj = deviceObj;
 			self.deviceObj.onreceive = self.onreceive.bind(self);
 			self.retry = 0;
+			if(printFunction){printFunction()}
 		} else if ( code == "DEVICE_IN_USE" ){
             log("Impresora en uso. No se pudo conectar.")
 			if ( self.retry < 5 ) {
